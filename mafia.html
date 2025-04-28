@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Мафия – раздача ролей</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #f2f2f2;
+    }
+    .container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      padding: 2rem;
+      width: 92%;
+      max-width: 520px;
+      text-align: center;
+    }
+    button {
+      padding: 0.7rem 1.2rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 1rem;
+      background: #0077ff;
+      color: #fff;
+      transition: background .2s;
+    }
+    button:hover{background:#005dd6;}
+    button.secondary{background:#555}
+    table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.95rem}
+    td{padding:.4rem .2rem;text-align:left}
+    tr:nth-child(even){background:#fafafa}
+    input[type=number]{width:68px;padding:.3rem;font-size:1rem;border:1px solid #ccc;border-radius:6px;text-align:center}
+    .neg{color:#d60000;font-weight:bold}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+
+  <!-- Шаг 1: ввод количества игроков -->
+  <div class="container" id="step1">
+    <h2>Сколько игроков (включая ведущего)?</h2>
+    <input type="number" id="playerCount" min="5" max="24" value="9" style="width:100%;padding:.6rem;font-size:1.1rem" />
+    <button id="proposeBtn">Предложить расклад</button>
+  </div>
+
+  <!-- Шаг 2: настройка и подтверждение расклада -->
+  <div class="container hidden" id="step2">
+    <h2>Настройте расклад</h2>
+    <div id="layoutArea"></div>
+    <button id="acceptBtn">Принять</button>
+    <button id="backBtn" class="secondary">Назад</button>
+  </div>
+
+  <!-- Шаг 3: приглашение игрока -->
+  <div class="container hidden" id="step3">
+    <h2 id="playerHeading"></h2>
+    <button id="showRoleBtn">Показать роль</button>
+  </div>
+
+  <!-- Шаг 4: показ роли -->
+  <div class="container hidden" id="step4">
+    <h2>Ваша роль:</h2>
+    <p id="roleDisplay" style="font-size:1.6rem;font-weight:bold"></p>
+    <button id="hideRoleBtn">Скрыть</button>
+  </div>
+
+  <!-- Финиш -->
+  <div class="container hidden" id="finish">
+    <h2>Все роли розданы!</h2>
+    <p>Желаем увлекательной игры.</p>
+    <button onclick="location.reload()">Начать заново</button>
+  </div>
+
+<script>
+const proposeBtn=document.getElementById('proposeBtn');
+const acceptBtn=document.getElementById('acceptBtn');
+const backBtn=document.getElementById('backBtn');
+const showRoleBtn=document.getElementById('showRoleBtn');
+const hideRoleBtn=document.getElementById('hideRoleBtn');
+let roles=[],currentPlayer=0,totalPlayers=0;
+
+// генерируем дефолт
+function defaultLayout(n){
+  const others=n-1; //-1 ведущий
+  const mafia=Math.max(1,Math.round(others/3));
+  const commissar=n>=5?1:0;
+  const doctor=n>=6?1:0;
+  const prostitute=n>=7?1:0;
+  const yakuza=n>=8?1:0;
+  const civilians=Math.max(0,others-mafia-commissar-doctor-prostitute-yakuza);
+  return {host:1,mafia,commissar,doctor,prostitute,yakuza,civilians};
+}
+
+function buildTable(layout){
+  const area=document.getElementById('layoutArea');
+  let html=`<table><tbody>
+    <tr><td>Ведущий</td><td>1 (обязательно)</td></tr>
+    <tr><td>Мафия</td><td><input type="number" id="maf" min="1" value="${layout.mafia}"></td></tr>
+    <tr><td>Комиссар</td><td><input type="number" id="com" min="0" value="${layout.commissar}"></td></tr>
+    <tr><td>Доктор</td><td><input type="number" id="doc" min="0" value="${layout.doctor}"></td></tr>
+    <tr><td>Проститутка</td><td><input type="number" id="pro" min="0" value="${layout.prostitute}"></td></tr>
+    <tr><td>Якудза</td><td><input type="number" id="yak" min="0" value="${layout.yakuza}"></td></tr>
+    <tr><td><strong>Мирный житель</strong></td><td id="civ">${layout.civilians}</td></tr>
+  </tbody></table>`;
+  area.innerHTML=html;
+
+  ['maf','com','doc','pro','yak'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',updateCivilians);
+  });
+}
+
+function updateCivilians(){
+  const m=parseInt(document.getElementById('maf').value)||0;
+  const c=parseInt(document.getElementById('com').value)||0;
+  const d=parseInt(document.getElementById('doc').value)||0;
+  const p=parseInt(document.getElementById('pro').value)||0;
+  const y=parseInt(document.getElementById('yak').value)||0;
+  const civ=totalPlayers-1-(m+c+d+p+y);
+  const civCell=document.getElementById('civ');
+  civCell.textContent=civ;
+  civCell.classList.toggle('neg',civ<0);
+}
+
+// Шаг1 → Шаг2
+proposeBtn.onclick=()=>{
+  totalPlayers=parseInt(document.getElementById('playerCount').value,10);
+  if(isNaN(totalPlayers)||totalPlayers<5){alert('Минимум 5 игроков вместе с ведущим');return;}
+  buildTable(defaultLayout(totalPlayers));
+  document.getElementById('step1').classList.add('hidden');
+  document.getElementById('step2').classList.remove('hidden');
+};
+
+// validate and create roles
+acceptBtn.onclick=()=>{
+  const mafia=parseInt(document.getElementById('maf').value)||0;
+  const commissar=parseInt(document.getElementById('com').value)||0;
+  const doctor=parseInt(document.getElementById('doc').value)||0;
+  const prostitute=parseInt(document.getElementById('pro').value)||0;
+  const yakuza=parseInt(document.getElementById('yak').value)||0;
+  const civilians=totalPlayers-1-(mafia+commissar+doctor+prostitute+yakuza);
+  if(mafia<1){alert('Должна быть минимум 1 мафия');return;}
+  if(civilians<0){alert('Количество ролей превышает число игроков');return;}
+  roles=['Ведущий'];
+  roles.push(...Array(mafia).fill('Мафия'));
+  roles.push(...Array(commissar).fill('Комиссар'));
+  roles.push(...Array(doctor).fill('Доктор'));
+  roles.push(...Array(prostitute).fill('Проститутка'));
+  roles.push(...Array(yakuza).fill('Якудза'));
+  roles.push(...Array(civilians).fill('Мирный житель'));
+  shuffle(roles);
+  currentPlayer=0;
+  document.getElementById('step2').classList.add('hidden');
+  document.getElementById('step3').classList.remove('hidden');
+  updatePlayerHeading();
+};
+
+backBtn.onclick=()=>{
+  document.getElementById('step2').classList.add('hidden');
+  document.getElementById('step1').classList.remove('hidden');
+};
+
+function updatePlayerHeading(){
+  document.getElementById('playerHeading').textContent=`Игрок ${currentPlayer+1} из ${roles.length}, ваш ход`;
+}
+
+showRoleBtn.onclick=()=>{
+  document.getElementById('roleDisplay').textContent=roles[currentPlayer];
+  document.getElementById('step3').classList.add('hidden');
+  document.getElementById('step4').classList.remove('hidden');
+};
+
+hideRoleBtn.onclick=()=>{
+  currentPlayer++;
+  if(currentPlayer>=roles.length){
+    document.getElementById('step4').classList.add('hidden');
+    document.getElementById('finish').classList.remove('hidden');
+  }else{
+    document.getElementById('step4').classList.add('hidden');
+    document.getElementById('step3').classList.remove('hidden');
+    updatePlayerHeading();
+  }
+};
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}}
+</script>
+
+</body>
+</html>
