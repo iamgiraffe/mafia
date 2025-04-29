@@ -1,3 +1,3 @@
 # mafia game
 
-Click [https://iamgiraffe.github.io/mafia/mafia.html](START) to launch the game –>
+Click [START](https://iamgiraffe.github.io/mafia/mafia.html) to launch the game –>
